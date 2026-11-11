@@ -34,7 +34,8 @@ export async function unfavoriteIds({ page, cfg, ids, signal, log = () => {} }) 
   }
 
   await scrollToTop(page);
-  const maxRounds = Math.ceil(ids.length / cfg.chunkSize) + 12;
+  // 轮次预算要覆盖「滚动找目标」的消耗，不只看批次数；到底无目标会自动结束
+  const maxRounds = Math.ceil(ids.length / cfg.chunkSize) + 40;
   let emptyScrolls = 0;
 
   while (remaining.size > 0 && rounds < maxRounds) {
