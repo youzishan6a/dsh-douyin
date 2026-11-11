@@ -45,6 +45,7 @@ If the bundle entry does not show up, append this to `~/.dsh/profiles/web/cordis
 | `douyin_favorites_scan` | Scroll and collect favorites into the local ledger, max 150 new items per batch |
 | `douyin_favorites_summarize` | Filter by `types` / `exclude` / `sinceDays`, return grouped material |
 | `douyin_unfavorite_old` | Select favorites older than N days and unfavorite them |
+| `douyin_check_update` | Check GitHub for a newer version; optionally install it |
 
 Categories: `food`, `travel`, `tech`, `entertainment`, `knowledge`, `fitness`, `finance`, `game`, `life`, `music`, `pet`, `other`. `types` also accepts Chinese labels or arbitrary keywords.
 
@@ -60,6 +61,12 @@ Items without a resolvable date are reported as "unknown age" and are never remo
 ## Batch scanning
 
 Each `douyin_favorites_scan` call collects at most **150 new items**. Items already in the ledger are skipped, so repeated calls continue with the next 150 further down the list. The per-session batch counter resets when dsh restarts, but the scanned list is persisted in `ledger.json`, so nothing is lost or duplicated. Every scan starts checking from the top, which also catches newly added favorites.
+
+## Updates
+
+Open dsh Settings → "抖音收藏" and click **检查更新 (Check for updates)**. One click checks GitHub, downloads a newer build, verifies it, replaces the installed files (keeping `.bak` backups), and asks you to restart dsh. The same flow is available to the agent through `douyin_check_update` (`apply=true` installs).
+
+The update endpoint only accepts loopback requests and only downloads a fixed file list; it never runs npm/pnpm or installs dependencies.
 
 ## Safety
 

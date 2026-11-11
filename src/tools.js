@@ -1,6 +1,8 @@
 /** 五个模型可调用的工具：登录、状态、扫描、归纳、按时间取消收藏。 @module dsh-douyin/tools */
 
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import { fileURLToPath } from 'node:url';
+import { createUpdateTool } from './tools-update.js';
 import { dumpPage, isLoggedIn, withBrowser } from './browser.js';
 import { activeItems, appendActionLog, describeSession, markUnfavorited, mergeItems, readLedger, writeLedger } from './store.js';
 import { filterItems, groupByCategory } from './classify.js';
@@ -37,15 +39,18 @@ function rethrowFriendly(error) {
 
 /**
  * @param {Record<string, any>} cfg 插件配置。
+ * @param {{pkgRoot?:string}} [options] 插件根目录，默认从当前模块位置推断。
  * @returns {import('@deepseek-ai/dsh-tools').ToolDefinition[]} 工具定义列表。
  */
-export function createTools(cfg) {
+export function createTools(cfg, options = {}) {
+  const pkgRoot = options.pkgRoot ?? fileURLToPath(new URL('..', import.meta.url));
   return [
     createLoginTool(cfg),
     createStatusTool(cfg),
     createScanTool(cfg),
     createSummarizeTool(cfg),
     createUnfavoriteTool(cfg),
+    createUpdateTool(pkgRoot),
   ];
 }
 

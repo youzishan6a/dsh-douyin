@@ -69,6 +69,26 @@ dsh --profile web --dump-config | grep douyin
 
 安装完成后重启 dsh，在对话里问「抖音插件有哪些工具」或直接说「帮我登录抖音」即可触发。
 
+## 版本更新
+
+插件带一个自更新按钮：
+
+1. 打开 dsh 设置 → 左侧「抖音收藏」；
+2. 点击「检查更新」；
+3. 有新版本会自动下载并替换文件，提示「请重启 dsh 生效」；已是最新则直接提示版本号。
+
+也可以让 Agent 调用 `douyin_check_update`：默认只检查，传 `apply=true` 才会安装。
+
+实现细节：
+
+- 读取 `https://raw.githubusercontent.com/youzishan6a/dsh-douyin/main/package.json` 的版本号，与本地比较；
+- 只下载固定清单：`package.json`、`cordis.patch.yml`、`lib/index.js`、`lib/client.js`；
+- 校验文件名、版本号、`lib/index.js` 体积与标记后才替换，旧文件保留 `.bak.<时间戳>` 备份；
+- 更新接口只接受本机请求（`localhost`/`127.0.0.1`），局域网访问会被拒绝；
+- 替换的是当前安装目录里的文件，不执行 npm/pnpm，不联网安装依赖。
+
+注意：自更新会加载 GitHub 上的最新代码。如果 fork 或改了仓库地址，需要同步修改 `src/update.js` 里的 `UPDATE_REPO`。
+
 ---
 
 ## 首次使用
@@ -106,6 +126,7 @@ Agent：douyin_unfavorite_old(..., dryRun=false, confirm=true)
 | `douyin_favorites_scan` | 滚动抓取收藏并写入账本，每批最多 150 条新的 | `limit`（上限 150）、`maxScrolls` |
 | `douyin_favorites_summarize` | 按类型/排除词筛选并分组，返回归纳素材 | `types`、`exclude`、`sinceDays`、`maxItems`、`refresh` |
 | `douyin_unfavorite_old` | 按时间批量取消收藏 | `olderThanDays`、`ageBasis`、`types`、`exclude`、`limit`、`dryRun`、`confirm` |
+| `douyin_check_update` | 检查 GitHub 是否有新版本，可一键更新 | `apply` |
 
 ### 类型取值
 

@@ -39,9 +39,10 @@ function setup(overrides = {}) {
   return { config, tools, dir };
 }
 
-test('注册五个工具，名称唯一且参数结构合法', () => {
+test('注册六个工具，名称唯一且参数结构合法', () => {
   const { tools } = setup();
   assert.deepEqual([...tools.keys()].sort(), [
+    'douyin_check_update',
     'douyin_favorites_scan',
     'douyin_favorites_summarize',
     'douyin_login',

@@ -1,13 +1,15 @@
-/** 插件入口：向 dsh 的 tools 服务注册抖音相关工具。 @module dsh-douyin */
+/** 插件入口：注册抖音工具与「检查更新」按钮的后端接口。 @module dsh-douyin */
 
+import { fileURLToPath } from 'node:url';
 import { createTools } from './tools.js';
 import { resolveConfig } from './config.js';
+import { registerUpdateRpc } from './update-rpc.js';
 
 /** Cordis 插件名。 */
 export const name = 'dsh-douyin';
 
-/** 依赖的工具注册服务。 */
-export const inject = ['tools'];
+/** 依赖：工具注册服务 + 客户端连接（用于设置页按钮的更新接口）。 */
+export const inject = ['tools', 'connection'];
 
 /**
  * 挂载插件。
@@ -17,7 +19,12 @@ export const inject = ['tools'];
  */
 export function apply(ctx, config = {}) {
   const cfg = resolveConfig(config ?? {});
-  for (const tool of createTools(cfg)) {
+  const pkgRoot = fileURLToPath(new URL('..', import.meta.url));
+
+  for (const tool of createTools(cfg, { pkgRoot })) {
     ctx.tools.register(tool);
   }
+
+  // 客户端「检查更新」按钮通过 /api/dsh-douyin/update 调到宿主侧
+  ctx.effect(() => registerUpdateRpc(ctx, { pkgRoot }), 'dsh-douyin: update rpc');
 }
