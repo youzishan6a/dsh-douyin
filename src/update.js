@@ -102,14 +102,45 @@ async function fetchText(fetchImpl, url, signal) {
 }
 
 /**
+ * 读取仓库里的一个文件。
+ * 优先走 GitHub Contents API（推送后立即可见），失败再退回 raw.githubusercontent（有 CDN 缓存）。
+ * @param {(url: string, init?: RequestInit) => Promise<Response>} fetchImpl fetch 实现。
+ * @param {string} file 仓库内相对路径。
+ * @param {AbortSignal} [signal] 取消信号。
+ * @returns {Promise<string>} 文件内容。
+ */
+export async function fetchRepoFile(fetchImpl, file, signal) {
+  const api = `https://api.github.com/repos/${UPDATE_REPO}/contents/${file}?ref=${UPDATE_BRANCH}`;
+  try {
+    const response = await fetchImpl(api, {
+      headers: {
+        accept: 'application/vnd.github.raw',
+        'user-agent': 'dsh-douyin-updater',
+        'x-github-api-version': '2022-11-28',
+      },
+      redirect: 'error',
+      signal: signal ?? AbortSignal.timeout(20_000),
+    });
+    if (response.ok) {
+      const text = await response.text();
+      if (Buffer.byteLength(text, 'utf8') > MAX_FILE_BYTES) throw new Error(`文件过大，已拒绝：${file}`);
+      return text;
+    }
+  } catch {
+    // 落到 raw 兜底；如果 raw 也失败，错误由 fetchText 抛出
+  }
+  const raw = `https://raw.githubusercontent.com/${UPDATE_REPO}/${UPDATE_BRANCH}/${file}`;
+  return fetchText(fetchImpl, `${raw}?t=${Date.now()}`, signal);
+}
+
+/**
  * 读取远端最新清单。
  * @param {(url: string, init?: RequestInit) => Promise<Response>} fetchImpl fetch 实现。
  * @param {AbortSignal} [signal] 取消信号。
  * @returns {Promise<{name:string,version:string}>} 远端清单。
  */
 export async function fetchRemoteManifest(fetchImpl, signal) {
-  const base = `https://raw.githubusercontent.com/${UPDATE_REPO}/${UPDATE_BRANCH}`;
-  const text = await fetchText(fetchImpl, `${base}/package.json?t=${Date.now()}`, signal);
+  const text = await fetchRepoFile(fetchImpl, 'package.json', signal);
   let json;
   try {
     json = JSON.parse(text);
@@ -143,7 +174,6 @@ export async function checkForUpdate({ pkgRoot, fetchImpl = globalThis.fetch, si
  * @returns {Promise<{updatedFiles:string[], backupSuffix:string}>} 更新结果。
  */
 export async function installUpdate({ pkgRoot, version, fetchImpl, signal }) {
-  const base = `https://raw.githubusercontent.com/${UPDATE_REPO}/${UPDATE_BRANCH}`;
   const stage = path.join(pkgRoot, `.update-stage-${Date.now()}`);
   const contents = new Map();
 
@@ -151,7 +181,7 @@ export async function installUpdate({ pkgRoot, version, fetchImpl, signal }) {
     for (const file of UPDATE_FILES) {
       let text;
       try {
-        text = await fetchText(fetchImpl, `${base}/${file}?t=${Date.now()}`, signal);
+        text = await fetchRepoFile(fetchImpl, file, signal);
       } catch (error) {
         // 旧版本可能还没有客户端产物，缺 lib/client.js 不算失败
         if (file === 'lib/client.js') continue;

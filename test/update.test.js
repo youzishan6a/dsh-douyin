@@ -5,21 +5,24 @@ import os from 'node:os';
 import path from 'node:path';
 import { compareVersions, parseVersion, runUpdate } from '../src/update.js';
 
-const REPO_PATH = '/youzishan6a/dsh-douyin/main/';
-
 /**
  * 构造一个按路径返回固定内容的 fetch。
- * @param {Record<string, string>} files 路径（相对 main）到内容。
+ * @param {Record<string, string>} files 文件名到内容。
+ * @param {{api?:boolean}} [options] api=false 时模拟 API 不可用，只走 raw 兜底。
  * @returns {Function} fetch 实现。
  */
-function fakeFetch(files) {
+function fakeFetch(files, { api = true } = {}) {
   return async (url) => {
-    const key = new URL(url).pathname.replace(REPO_PATH, '');
-    const body = files[key];
-    if (body === undefined) {
-      return { ok: false, status: 404, text: async () => '' };
+    const pathname = decodeURIComponent(new URL(url).pathname);
+    if (!api && pathname.startsWith('/repos/')) {
+      return { ok: false, status: 403, text: async () => '' };
     }
-    return { ok: true, status: 200, text: async () => body };
+    for (const [file, body] of Object.entries(files)) {
+      if (pathname.endsWith(`/${file}`)) {
+        return { ok: true, status: 200, text: async () => body };
+      }
+    }
+    return { ok: false, status: 404, text: async () => '' };
   };
 }
 
@@ -94,6 +97,16 @@ test('runUpdate 应用更新会替换文件并保留备份', async () => {
 
   const backups = fs.readdirSync(path.join(dir, 'lib')).filter((name) => name.includes('.bak.'));
   assert.equal(backups.length, 1);
+});
+
+test('GitHub API 不可用时退回 raw 地址', async () => {
+  const dir = makePkg({ version: '0.2.0' });
+  const value = await runUpdate({
+    pkgRoot: dir,
+    fetchImpl: fakeFetch({ 'package.json': remotePkg('0.3.0') }, { api: false }),
+  });
+  assert.equal(value.status, 'update-available');
+  assert.equal(value.latestVersion, '0.3.0');
 });
 
 test('远端 lib 校验失败时中止且不改本地文件', async () => {
