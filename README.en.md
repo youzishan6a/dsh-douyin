@@ -42,7 +42,7 @@ If the bundle entry does not show up, append this to `~/.dsh/profiles/web/cordis
 | --- | --- |
 | `douyin_login` | QR login, persists cookies to `~/.dsh/douyin/state.json` |
 | `douyin_status` | Session file, ledger size, last actions; `probe=true` verifies login |
-| `douyin_favorites_scan` | Scroll and collect favorites into the local ledger |
+| `douyin_favorites_scan` | Scroll and collect favorites into the local ledger, max 150 new items per batch |
 | `douyin_favorites_summarize` | Filter by `types` / `exclude` / `sinceDays`, return grouped material |
 | `douyin_unfavorite_old` | Select favorites older than N days and unfavorite them |
 
@@ -56,6 +56,10 @@ Douyin's web UI does not expose *when* an item was favorited. The plugin therefo
 - `firstSeen`: when this plugin first scanned the item — only meaningful after it has been running for a while.
 
 Items without a resolvable date are reported as "unknown age" and are never removed.
+
+## Batch scanning
+
+Each `douyin_favorites_scan` call collects at most **150 new items**. Items already in the ledger are skipped, so repeated calls continue with the next 150 further down the list. The per-session batch counter resets when dsh restarts, but the scanned list is persisted in `ledger.json`, so nothing is lost or duplicated. Every scan starts checking from the top, which also catches newly added favorites.
 
 ## Safety
 

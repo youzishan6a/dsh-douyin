@@ -14,6 +14,15 @@ import { clampInt, shortTime } from './util.js';
 
 const DESTRUCTIVE_HINT = '默认只演练不执行；真正执行必须传 confirm=true，且用户已明确同意。';
 
+/** 单批扫描上限：每次只抓 150 条新的。 */
+const SCAN_BATCH_SIZE = 150;
+
+/**
+ * 当前 dsh 进程内的扫描进度。进程重启即归零；
+ * 已扫描清单保存在账本里，归零只影响计数，不会导致重复入库。
+ */
+const scanSession = { batches: 0, items: 0 };
+
 /**
  * 把未登录错误换成带操作指引的提示。
  * @param {unknown} error 原始错误。
@@ -184,12 +193,14 @@ function createScanTool(cfg) {
   return defineTool({
     name: 'douyin_favorites_scan',
     description:
-      '打开抖音收藏页，自动滚动加载并抓取收藏视频清单，合并进本地账本（保留首次出现时间）。'
-      + '需要已登录。结果会返回新增/累计数量与样例；完整清单供 douyin_favorites_summarize 使用。',
+      '打开抖音收藏页，抓取收藏视频清单并合并进本地账本（保留首次出现时间）。需要已登录。'
+      + `每批最多 ${SCAN_BATCH_SIZE} 条：会自动跳过账本里已扫描过的条目，下一批直接从下面继续。`
+      + '本会话批次计数在 dsh 重启后归零，但已扫描清单保存在账本里，不会重复入库。'
+      + '完整清单供 douyin_favorites_summarize 使用。',
     timeoutMs: 420_000,
     parameters: {
-      limit: { type: 'integer', description: '本次最多抓取多少条，默认 800，上限 3000。' },
-      maxScrolls: { type: 'integer', description: '最多滚动多少次，默认 60，上限 400。' },
+      limit: { type: 'integer', description: `本批最多抓多少条，默认 ${SCAN_BATCH_SIZE}，上限 ${SCAN_BATCH_SIZE}。` },
+      maxScrolls: { type: 'integer', description: '最多滚动多少次，默认 120，上限 600；后面的批次需要更多滚动。' },
     },
     output: {
       schema: {
@@ -199,9 +210,13 @@ function createScanTool(cfg) {
           scanned: { type: 'integer', required: true },
           added: { type: 'integer', required: true },
           updated: { type: 'integer', required: true },
+          skippedKnown: { type: 'integer', required: true },
           total: { type: 'integer', required: true },
+          batch: { type: 'integer', required: true },
+          sessionScanned: { type: 'integer', required: true },
           rounds: { type: 'integer', required: true },
           reachedBottom: { type: 'boolean', required: true },
+          stoppedBy: { type: 'string', required: true },
           ledgerPath: { type: 'string', required: true },
           samples: {
             type: 'array',
@@ -221,21 +236,31 @@ function createScanTool(cfg) {
       render: (_args, value) => [{
         type: 'text',
         text: [
-          `扫描完成：本次抓到 ${value.scanned} 条，新增 ${value.added} 条，更新 ${value.updated} 条，账本累计 ${value.total} 条。`,
-          `滚动 ${value.rounds} 次${value.reachedBottom ? '，已到列表底部' : '，未到列表底部（可加大 maxScrolls）'}。`,
+          `扫描完成：本批抓到 ${value.scanned} 条（上限 ${SCAN_BATCH_SIZE}），跳过已扫描 ${value.skippedKnown} 条，新增 ${value.added} 条，账本累计 ${value.total} 条。`,
+          `本会话第 ${value.batch} 批，累计新增 ${value.sessionScanned} 条；dsh 重启后批次计数归零，已扫描清单仍在账本里。`,
+          `滚动 ${value.rounds} 次${value.reachedBottom ? '，已到列表底部' : '，未到列表底部'}${value.stoppedBy === 'max-scrolls' ? '（达到滚动上限，可加大 maxScrolls 继续）' : ''}。`,
           value.samples.length > 0 ? `样例：\n${value.samples.map((item, index) => `${index + 1}. ${item.title} — ${item.author || '未知作者'}`).join('\n')}` : '',
           `账本：${value.ledgerPath}`,
         ].filter(Boolean).join('\n'),
       }],
     },
     async execute(args, exec) {
-      const limit = clampInt(args.limit, 1, 3000, cfg.scanLimit);
-      const maxScrolls = clampInt(args.maxScrolls, 1, 400, cfg.maxScrolls);
+      const limit = clampInt(args.limit, 1, SCAN_BATCH_SIZE, cfg.scanLimit);
+      const maxScrolls = clampInt(args.maxScrolls, 1, 600, cfg.maxScrolls);
       try {
         return await withBrowser(cfg, async ({ page, context }) => {
           try {
             await openFavorites(page, context, cfg);
-            const scan = await scanFavorites({ page, cfg, limit, maxScrolls, signal: exec.signal });
+            // 已扫描清单：账本里仍在收藏的条目；已取消收藏的允许重新收集
+            const knownIds = new Set(activeItems(readLedger(cfg.ledgerPath)).map((item) => item.id));
+            const scan = await scanFavorites({
+              page,
+              cfg,
+              limit,
+              maxScrolls,
+              knownIds,
+              signal: exec.signal,
+            });
             const ledger = readLedger(cfg.ledgerPath);
             const merged = mergeItems(ledger.items, scan.items);
             writeLedger(cfg.ledgerPath, { version: 1, items: merged.items });
@@ -244,14 +269,24 @@ function createScanTool(cfg) {
               scanned: scan.items.length,
               added: merged.added,
               updated: merged.updated,
+              skippedKnown: scan.skippedKnown,
+              stoppedBy: scan.stoppedBy,
             });
+
+            scanSession.batches += 1;
+            scanSession.items += merged.added;
+
             return {
               scanned: scan.items.length,
               added: merged.added,
               updated: merged.updated,
+              skippedKnown: scan.skippedKnown,
               total: Object.keys(merged.items).length,
+              batch: scanSession.batches,
+              sessionScanned: scanSession.items,
               rounds: scan.rounds,
               reachedBottom: scan.reachedBottom,
+              stoppedBy: scan.stoppedBy,
               ledgerPath: cfg.ledgerPath,
               samples: scan.items.slice(0, 6).map((item) => ({
                 title: truncate(item.title, 60),
@@ -360,10 +395,19 @@ function createSummarizeTool(cfg) {
         try {
           await withBrowser(cfg, async ({ page, context }) => {
             await openFavorites(page, context, cfg);
-            const scan = await scanFavorites({ page, cfg, signal: exec.signal });
+            const knownIds = new Set(activeItems(readLedger(cfg.ledgerPath)).map((item) => item.id));
+            const scan = await scanFavorites({ page, cfg, knownIds, signal: exec.signal });
             const merged = mergeItems(ledger.items, scan.items);
             writeLedger(cfg.ledgerPath, { version: 1, items: merged.items });
-            appendActionLog(cfg.actionLogPath, { action: 'scan', scanned: scan.items.length, reason: 'summarize-refresh' });
+            scanSession.batches += 1;
+            scanSession.items += merged.added;
+            appendActionLog(cfg.actionLogPath, {
+              action: 'scan',
+              scanned: scan.items.length,
+              added: merged.added,
+              skippedKnown: scan.skippedKnown,
+              reason: 'summarize-refresh',
+            });
           }, { signal: exec.signal });
           ledger = readLedger(cfg.ledgerPath);
         } catch (error) {

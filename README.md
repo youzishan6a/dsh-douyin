@@ -103,7 +103,7 @@ Agent：douyin_unfavorite_old(..., dryRun=false, confirm=true)
 | --- | --- | --- |
 | `douyin_login` | 打开浏览器扫码登录，保存登录态 | `force` 切换账号；`timeoutSeconds` |
 | `douyin_status` | 查看登录态、账本规模、最近操作 | `probe=true` 才真实校验登录 |
-| `douyin_favorites_scan` | 滚动抓取收藏并写入账本 | `limit`、`maxScrolls` |
+| `douyin_favorites_scan` | 滚动抓取收藏并写入账本，每批最多 150 条新的 | `limit`（上限 150）、`maxScrolls` |
 | `douyin_favorites_summarize` | 按类型/排除词筛选并分组，返回归纳素材 | `types`、`exclude`、`sinceDays`、`maxItems`、`refresh` |
 | `douyin_unfavorite_old` | 按时间批量取消收藏 | `olderThanDays`、`ageBasis`、`types`、`exclude`、`limit`、`dryRun`、`confirm` |
 
@@ -129,6 +129,18 @@ Agent：douyin_unfavorite_old(..., dryRun=false, confirm=true)
 `firstSeen` 只会从第一次扫描开始记账，刚装插件时所有条目都是「今天」，无法回溯历史收藏时间。这是平台限制，不是插件偷懒。
 
 缺少发布时间时，插件会打开视频详情页补全（每次最多 `enrichLimit` 条，默认 20）。补不到的条目会被归入「时间未知」并**跳过**，绝不会因为时间不明被误删。
+
+---
+
+## 分批扫描规则
+
+- **每批最多 150 条**：`douyin_favorites_scan` 单次只收 150 条新的，`limit` 上限也是 150。
+- **自动跳过已扫描**：账本里已有的条目不会重复入库，扫描会越过它们，继续取下面的 150 条。
+- **重复调用即续批**：连续调用两次，第一批 1–150，第二批 151–300；不需要手动记位置。
+- **重启重置会话计数**：dsh 重启后「本会话第几批 / 累计新增」归零，但已扫描清单保存在 `ledger.json` 里，不会丢失，也不会重扫。
+- **每次从列表顶部开始检查**：这样能发现新收藏（新收藏在最上面）；顶部已扫描的会被跳过，所以结果仍是「下一批 150 条新的」。
+- 已经取消收藏的条目不算「已扫描」，如果重新收藏会再次被收进来。
+- 滚动次数不够时会返回 `stoppedBy: max-scrolls`，加大 `maxScrolls` 再跑一次即可接着往后取。
 
 ---
 
@@ -179,8 +191,8 @@ Agent：douyin_unfavorite_old(..., dryRun=false, confirm=true)
         maxUnfavoritePerRun: 50     # 单次上限，最大 100
         chunkSize: 15               # 每轮勾选条数，最大 30
         enrichLimit: 20             # 每次最多补全多少条发布时间
-        maxScrolls: 60              # 扫描时最多滚动次数
-        scanLimit: 800              # 单次扫描最多保留条数
+        maxScrolls: 120             # 单批最多滚动次数，后面的批次需要更多滚动
+        scanLimit: 150              # 单批扫描条数，上限 150
         favoritesUrl: "https://www.douyin.com/user/self?showTab=favorite_collection"
 ```
 

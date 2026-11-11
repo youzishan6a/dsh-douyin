@@ -59,10 +59,10 @@ export function resolveConfig(raw = {}) {
     allowDestructive: raw.allowDestructive !== false,
     /** 缺少发布时间时，最多为多少条候选去详情页补时间。 */
     enrichLimit: clampInt(raw.enrichLimit, 0, 60, 20),
-    /** 扫描时最多滚动多少次。 */
-    maxScrolls: clampInt(raw.maxScrolls, 1, 400, 60),
-    /** 一次扫描最多保留多少条。 */
-    scanLimit: clampInt(raw.scanLimit, 1, 3000, 800),
+    /** 单批扫描条数：每次只抓 150 条新的，上限也是 150。 */
+    scanLimit: clampInt(raw.scanLimit, 1, 150, 150),
+    /** 单批扫描最多滚动多少次；越往后批次需要越多滚动。 */
+    maxScrolls: clampInt(raw.maxScrolls, 1, 600, 120),
 
     navTimeoutMs: clampInt(raw.navTimeoutMs, 10_000, 120_000, 45_000),
     loginTimeoutMs: clampInt(raw.loginTimeoutMs, 30_000, 600_000, 300_000),

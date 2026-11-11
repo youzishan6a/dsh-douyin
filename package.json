@@ -1,6 +1,6 @@
 {
   "name": "dsh-douyin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DeepSeek Harness 插件：扫码登录抖音、归纳收藏视频、按时间批量取消收藏",
   "keywords": [
     "dsh-plugin",
@@ -43,7 +43,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test",
+    "test": "node scripts/test.mjs",
     "check": "npm run build && npm run test"
   },
   "dependencies": {

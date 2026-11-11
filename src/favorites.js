@@ -73,30 +73,71 @@ async function ensureVideoTab(page) {
 }
 
 /**
- * 滚动收藏列表并累计卡片。
+ * 从一批卡片里挑出尚未扫描过的条目。
+ * 纯函数，方便单测；已扫描集合既包括账本，也包括本次扫描已收集的条目。
+ * @param {Array<Record<string, any>>} items 页面提取结果。
+ * @param {Set<string>} knownIds 账本里已扫描过的 id。
+ * @param {Map<string, Record<string, any>>} collected 本次已收集的条目。
+ * @param {number} remaining 本次还剩多少配额。
+ * @returns {Array<Record<string, any>>} 需要新增的条目。
+ */
+export function pickNewItems(items, knownIds, collected, remaining) {
+  const picked = [];
+  if (remaining <= 0) return picked;
+  for (const item of items) {
+    if (!item?.id) continue;
+    if (knownIds.has(item.id) || collected.has(item.id)) continue;
+    picked.push(item);
+    if (picked.length >= remaining) break;
+  }
+  return picked;
+}
+
+/**
+ * 滚动收藏列表，只收集尚未扫描过的卡片。
+ * 每次最多 limit 条（默认 150），已扫描的条目会被跳过，因此下一批会自然落到更下面。
  * @param {object} params 参数。
  * @param {import('playwright-core').Page} params.page 页面。
  * @param {Record<string, any>} params.cfg 插件配置。
- * @param {number} [params.limit] 目标条数。
+ * @param {number} [params.limit] 本批目标条数，上限 150。
  * @param {number} [params.maxScrolls] 最大滚动次数。
+ * @param {Set<string>} [params.knownIds] 账本里已扫描过的 id。
  * @param {AbortSignal} [params.signal] 取消信号。
- * @returns {Promise<{items:Array<Record<string, any>>, rounds:number, reachedBottom:boolean}>} 扫描结果。
+ * @returns {Promise<{items:Array<Record<string, any>>, rounds:number, reachedBottom:boolean, skippedKnown:number, stoppedBy:string}>} 扫描结果。
  */
-export async function scanFavorites({ page, cfg, limit = cfg.scanLimit, maxScrolls = cfg.maxScrolls, signal }) {
+export async function scanFavorites({
+  page,
+  cfg,
+  limit = cfg.scanLimit,
+  maxScrolls = cfg.maxScrolls,
+  knownIds = new Set(),
+  signal,
+}) {
   const collected = new Map();
+  const skipped = new Set();
   let rounds = 0;
   let staleRounds = 0;
   let reachedBottom = false;
+  let stoppedBy = 'limit';
 
   while (rounds < maxScrolls && collected.size < limit) {
-    if (signal?.aborted) break;
-    const raw = await page.evaluate(extractCardsInPage);
-    const before = collected.size;
-    for (const item of normalizeExtracted(raw)) {
-      if (!collected.has(item.id)) collected.set(item.id, item);
-      if (collected.size >= limit) break;
+    if (signal?.aborted) {
+      stoppedBy = 'aborted';
+      break;
     }
-    staleRounds = collected.size === before ? staleRounds + 1 : 0;
+
+    const normalized = normalizeExtracted(await page.evaluate(extractCardsInPage));
+    for (const item of normalized) {
+      if (knownIds.has(item.id)) skipped.add(item.id);
+    }
+    const fresh = pickNewItems(normalized, knownIds, collected, limit - collected.size);
+    for (const item of fresh) collected.set(item.id, item);
+    staleRounds = fresh.length === 0 ? staleRounds + 1 : 0;
+
+    if (collected.size >= limit) {
+      stoppedBy = 'limit';
+      break;
+    }
 
     const status = await scrollList(page);
     reachedBottom = status.atBottom;
@@ -105,15 +146,33 @@ export async function scanFavorites({ page, cfg, limit = cfg.scanLimit, maxScrol
     if (status.atBottom) {
       // 到底后给懒加载留时间，再判断是否真的没新增
       await sleep(randomBetween(1200, 1800));
-      const rawAfter = await page.evaluate(extractCardsInPage);
-      for (const item of normalizeExtracted(rawAfter)) {
-        if (!collected.has(item.id)) collected.set(item.id, item);
+      const after = normalizeExtracted(await page.evaluate(extractCardsInPage));
+      for (const item of after) {
+        if (knownIds.has(item.id)) skipped.add(item.id);
       }
-      if (staleRounds >= 2) break;
+      for (const item of pickNewItems(after, knownIds, collected, limit - collected.size)) {
+        collected.set(item.id, item);
+      }
+      if (collected.size >= limit) {
+        stoppedBy = 'limit';
+        break;
+      }
+      if (staleRounds >= 2) {
+        stoppedBy = 'bottom';
+        break;
+      }
     } else {
       await sleep(randomBetween(700, 1300));
     }
+
+    if (rounds >= maxScrolls) stoppedBy = 'max-scrolls';
   }
 
-  return { items: [...collected.values()], rounds, reachedBottom };
+  return {
+    items: [...collected.values()],
+    rounds,
+    reachedBottom,
+    skippedKnown: skipped.size,
+    stoppedBy: collected.size >= limit ? 'limit' : stoppedBy,
+  };
 }
