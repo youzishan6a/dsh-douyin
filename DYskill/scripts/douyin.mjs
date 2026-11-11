@@ -11,10 +11,9 @@
  */
 
 import process from 'node:process';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfig } from './lib/config.js';
-import { runUpdate } from './lib/update.js';
+import { resolveSkillRoot, runUpdate } from './lib/update.js';
 import { dumpPage, isLoggedIn, withBrowser } from './lib/browser.js';
 import { loginWithQr } from './lib/login.js';
 import { LoginRequiredError, openFavorites, scanFavorites } from './lib/favorites.js';
@@ -35,8 +34,8 @@ import { matchExclude, normalizeText, splitExcludeKeywords, truncate } from './l
 import { clampInt } from './lib/util.js';
 import * as report from './lib/report.js';
 
-/** 技能根目录（scripts/douyin.mjs 的上两级），自更新以它为边界。 */
-const SKILL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+/** 技能根目录（scripts/douyin.mjs 的上一级），自更新以它为边界。 */
+const SKILL_ROOT = resolveSkillRoot(fileURLToPath(import.meta.url));
 
 const HELP = `抖音收藏管理
 

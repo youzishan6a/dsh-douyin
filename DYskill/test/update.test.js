@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   UPDATE_FILES,
   compareVersions,
   fetchRepoFile,
   parseVersion,
+  resolveSkillRoot,
   runUpdate,
 } from '../scripts/lib/update.js';
 import { update as renderUpdate } from '../scripts/lib/report.js';
@@ -92,6 +94,15 @@ test('UPDATE_FILES 固定且不含账号数据文件', () => {
   assert.ok(UPDATE_FILES.includes('scripts/douyin.mjs'));
   assert.ok(!UPDATE_FILES.some((file) => file.includes('..') || file.startsWith('/')));
   assert.ok(!UPDATE_FILES.some((file) => /state\.json|ledger\.json|actions\.jsonl/.test(file)));
+});
+
+test('resolveSkillRoot 从 CLI 入口推导出技能根目录，而不是仓库根', () => {
+  const entry = fileURLToPath(new URL('../scripts/douyin.mjs', import.meta.url));
+  const expected = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+  const root = resolveSkillRoot(entry);
+  assert.equal(root, expected);
+  assert.ok(fs.existsSync(path.join(root, 'SKILL.md')));
+  assert.ok(fs.existsSync(path.join(root, 'package.json')));
 });
 
 test('fetchRepoFile 的地址落在仓库的 DYskill 子目录', async () => {

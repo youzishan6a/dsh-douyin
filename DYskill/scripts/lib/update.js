@@ -101,6 +101,15 @@ export function compareVersions(left, right) {
 }
 
 /**
+ * 从 CLI 入口路径推导技能根目录（入口固定为 <root>/scripts/douyin.mjs）。
+ * @param {string} entryFile CLI 入口的绝对文件路径。
+ * @returns {string} 技能根目录。
+ */
+export function resolveSkillRoot(entryFile) {
+  return path.resolve(path.dirname(entryFile), '..');
+}
+
+/**
  * 读取本地 package.json。
  * @param {string} pkgRoot 技能根目录。
  * @returns {{name:string,version:string}} 清单。
