@@ -114,7 +114,7 @@ node scripts/douyin.mjs update --check-only   # 只想看版本差异时
 
 规则：
 
-- 版本来源是 GitHub 仓库 `youzishan6a/dsh-douyin` 的 `DYskill/` 目录，先走 GitHub Contents API，失败再退回 raw 地址；
+- 版本来源是 GitHub 仓库 `youzishan6a/dsh-douyin` 的 `DYskill/` 目录，先走 GitHub Contents API，失败再退回 raw 地址；两者都有缓存，请求带时间戳参数；
 - 只替换固定清单里的技能代码文件（`package.json`、锁文件、`SKILL.md`、`README.md`、`scripts/`、`references/`），**不碰** `state.json`、`ledger.json`、`actions.jsonl`；
 - 全部文件下载并校验通过后才替换，旧文件保留 `.bak.<时间戳>` 备份；校验失败会中止，本地文件保持原样；
 - 不执行 npm/pnpm，不安装依赖；若以后依赖版本有变化，按提示手动 `npm install`；

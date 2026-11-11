@@ -81,7 +81,7 @@ dsh --profile web --dump-config | grep douyin
 
 实现细节：
 
-- 读取 `https://raw.githubusercontent.com/youzishan6a/dsh-douyin/main/package.json` 的版本号，与本地比较；
+- 优先通过 GitHub Contents API 读取 `package.json` 的版本号（请求带时间戳参数破除边缘缓存），失败再退回 `raw.githubusercontent.com`；与本地比较；
 - 只下载固定清单：`package.json`、`cordis.patch.yml`、`lib/index.js`、`lib/client.js`；
 - 校验文件名、版本号、`lib/index.js` 体积与标记后才替换，旧文件保留 `.bak.<时间戳>` 备份；
 - 更新接口只接受本机请求（`localhost`/`127.0.0.1`），局域网访问会被拒绝；
@@ -91,7 +91,7 @@ dsh --profile web --dump-config | grep douyin
 
 排查：如果设置里看不到「抖音收藏」，确认插件是作为 bundle 安装的（profile 的 `dsh.profile.bundles` 里有 `dsh-douyin`），并且客户端产物 `lib/client.js` 存在；更新后必须重启 dsh，旧进程仍跑旧代码。
 
-注意：自更新会加载 GitHub 上的最新代码。如果 fork 或改了仓库地址，需要同步修改 `src/update.js` 里的 `UPDATE_REPO`。
+注意：自更新会加载 GitHub 上的最新代码。如果 fork 或改了仓库地址，需要同步修改 `src/update.js` 里的 `UPDATE_REPO`。GitHub 的 Contents API 与 raw 地址都有缓存，因此每个请求都带时间戳参数；若刚推送仍显示旧版本，稍等片刻再点一次。
 
 ---
 

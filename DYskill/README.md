@@ -64,7 +64,7 @@ node scripts/douyin.mjs update              # 检查版本，有新版本就替�
 node scripts/douyin.mjs update --check-only # 只报告版本差异
 ```
 
-- 更新源是同一仓库的 `DYskill/` 目录，版本以 `DYskill/package.json` 为准；优先走 GitHub Contents API（推送后立即可见），失败才退回 raw 地址（有 CDN 缓存）。
+- 更新源是同一仓库的 `DYskill/` 目录，版本以 `DYskill/package.json` 为准；优先走 GitHub Contents API，失败才退回 raw 地址。两者都有缓存，请求统一带时间戳参数破除。
 - 只下载固定清单里的技能代码文件，逐个校验后才落盘；旧文件保留 `.bak.<时间戳>` 备份，校验失败则原文件不动。
 - **不会**改动 `~/.dsh/douyin/` 里的登录态、账本、日志，也不会执行 `npm install` 或运行任何下载来的脚本。
 - 当前进程继续用旧代码，**下一次命令**自动使用新版本；无需重启。

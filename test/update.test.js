@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { compareVersions, parseVersion, runUpdate } from '../src/update.js';
+import { compareVersions, fetchRepoFile, parseVersion, runUpdate } from '../src/update.js';
 
 /**
  * 构造一个按路径返回固定内容的 fetch。
@@ -97,6 +97,19 @@ test('runUpdate 应用更新会替换文件并保留备份', async () => {
 
   const backups = fs.readdirSync(path.join(dir, 'lib')).filter((name) => name.includes('.bak.'));
   assert.equal(backups.length, 1);
+});
+
+test('fetchRepoFile 给 Contents API 地址加缓存破除参数', async () => {
+  let seen = '';
+  const fetchImpl = async (url) => {
+    seen = url;
+    return { ok: true, status: 200, text: async () => 'ok' };
+  };
+  assert.equal(await fetchRepoFile(fetchImpl, 'package.json'), 'ok');
+  const parsed = new URL(seen);
+  assert.match(parsed.pathname, /\/contents\/package\.json$/);
+  assert.equal(parsed.searchParams.get('ref'), 'main');
+  assert.match(parsed.searchParams.get('t') ?? '', /^\d+$/);
 });
 
 test('GitHub API 不可用时退回 raw 地址', async () => {

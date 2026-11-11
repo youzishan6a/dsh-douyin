@@ -152,7 +152,8 @@ async function fetchText(fetchImpl, url, signal) {
  */
 export async function fetchRepoFile(fetchImpl, file, signal) {
   const repoPath = `${SKILL_DIR}/${file}`;
-  const api = `https://api.github.com/repos/${UPDATE_REPO}/contents/${repoPath}?ref=${UPDATE_BRANCH}`;
+  // Contents API 的边缘缓存同样会返回旧内容，必须带时间戳参数
+  const api = `https://api.github.com/repos/${UPDATE_REPO}/contents/${repoPath}?ref=${UPDATE_BRANCH}&t=${Date.now()}`;
   try {
     const response = await fetchImpl(api, {
       headers: {

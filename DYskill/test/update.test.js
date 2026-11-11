@@ -105,14 +105,17 @@ test('resolveSkillRoot 从 CLI 入口推导出技能根目录，而不是仓库�
   assert.ok(fs.existsSync(path.join(root, 'package.json')));
 });
 
-test('fetchRepoFile 的地址落在仓库的 DYskill 子目录', async () => {
+test('fetchRepoFile 的地址落在 DYskill 子目录且带缓存破除参数', async () => {
   let seen = '';
   const fetchImpl = async (url) => {
-    seen = new URL(url).pathname;
+    seen = url;
     return { ok: true, status: 200, text: async () => 'ok' };
   };
   assert.equal(await fetchRepoFile(fetchImpl, 'package.json'), 'ok');
-  assert.match(seen, /\/contents\/DYskill\/package\.json$/);
+  const parsed = new URL(seen);
+  assert.match(parsed.pathname, /\/contents\/DYskill\/package\.json$/);
+  assert.equal(parsed.searchParams.get('ref'), 'main');
+  assert.match(parsed.searchParams.get('t') ?? '', /^\d+$/);
 });
 
 test('已是最新版本时不改任何文件', async () => {

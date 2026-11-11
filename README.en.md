@@ -66,7 +66,7 @@ Each `douyin_favorites_scan` call collects at most **150 new items**. Items alre
 
 Open dsh Settings → "抖音收藏" and click **检查更新 (Check for updates)**. One click checks GitHub, downloads a newer build, verifies it, replaces the installed files (keeping `.bak` backups), and asks you to restart dsh. The same flow is available to the agent through `douyin_check_update` (`apply=true` installs).
 
-The update endpoint only accepts loopback requests and only downloads a fixed file list; it never runs npm/pnpm or installs dependencies.
+The updater reads versions through the GitHub Contents API first (with a timestamp parameter to bypass edge caching) and falls back to `raw.githubusercontent.com`. The update endpoint only accepts loopback requests and only downloads a fixed file list; it never runs npm/pnpm or installs dependencies.
 
 ## Safety
 

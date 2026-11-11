@@ -92,7 +92,7 @@ node scripts/douyin.mjs diagnose
 ### 检查更新提示失败 / 一直显示已是最新
 
 1. 先执行 `update --check-only --json`，看 `latestVersion` 与 `currentVersion`；
-2. 网络不通或 GitHub 限流时，稍后重试；`raw.githubusercontent.com` 有 CDN 缓存，脚本已优先改走 GitHub Contents API；
+2. 网络不通或 GitHub 限流时，稍后重试；Contents API 与 `raw.githubusercontent.com` 都有缓存，脚本对每个请求都带了时间戳参数；刚推送后仍显示旧版本时，隔一分钟再查一次；
 3. 若仓库被 fork 或改名，修改 `scripts/lib/update.js` 里的 `UPDATE_REPO` / `UPDATE_BRANCH` / `SKILL_DIR`；
 4. 更新只替换固定清单里的文件，`test/` 不在清单内；需要最新测试时从仓库重新复制整个目录；
 5. 每次更新会留下 `.bak.<时间戳>` 备份（已 gitignore）。回退时把对应备份改回原文件名，或直接用 `git checkout` 恢复；
