@@ -87,6 +87,10 @@ dsh --profile web --dump-config | grep douyin
 - 更新接口只接受本机请求（`localhost`/`127.0.0.1`），局域网访问会被拒绝；
 - 替换的是当前安装目录里的文件，不执行 npm/pnpm，不联网安装依赖。
 
+按钮只在 dsh web / desktop 客户端里显示；headless 或无界面环境请用 `douyin_check_update` 工具。
+
+排查：如果设置里看不到「抖音收藏」，确认插件是作为 bundle 安装的（profile 的 `dsh.profile.bundles` 里有 `dsh-douyin`），并且客户端产物 `lib/client.js` 存在；更新后必须重启 dsh，旧进程仍跑旧代码。
+
 注意：自更新会加载 GitHub 上的最新代码。如果 fork 或改了仓库地址，需要同步修改 `src/update.js` 里的 `UPDATE_REPO`。
 
 ---
