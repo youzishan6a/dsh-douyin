@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,6 +13,13 @@ import {
   runUpdate,
 } from '../scripts/lib/update.js';
 import { update as renderUpdate } from '../scripts/lib/report.js';
+
+/** 本文件创建的临时技能目录，测试结束后统一删除。 */
+const tempDirs = [];
+
+after(() => {
+  for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 /**
  * 生成一套完整的远端文件。
@@ -67,6 +74,7 @@ function fakeFetch(files, { api = true, secondManifest } = {}) {
  */
 function makeSkill(version = '0.2.0') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dy-skill-update-'));
+  tempDirs.push(dir);
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'dy-skill', version }));
   fs.mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scripts', 'douyin.mjs'), '// old build');

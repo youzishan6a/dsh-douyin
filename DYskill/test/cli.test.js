@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,6 +9,12 @@ import { writeLedger } from '../scripts/lib/store.js';
 
 const CLI = fileURLToPath(new URL('../scripts/douyin.mjs', import.meta.url));
 const ROOT = path.dirname(path.dirname(CLI));
+/** 本文件创建的临时数据目录，测试结束后统一删除。 */
+const tempDirs = [];
+
+after(() => {
+  for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 /**
  * 生成 n 天前的 ISO 时间。
@@ -25,6 +31,7 @@ function daysAgo(days) {
  */
 function setupData() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dy-skill-'));
+  tempDirs.push(dir);
   writeLedger(path.join(dir, 'ledger.json'), {
     version: 1,
     items: {
