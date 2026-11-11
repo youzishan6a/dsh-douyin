@@ -1,0 +1,59 @@
+{
+  "name": "dsh-douyin",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 插件：扫码登录抖音、归纳收藏视频、按时间批量取消收藏",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "douyin",
+    "抖音",
+    "favorites"
+  ],
+  "author": "youzishan6a",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youzishan6a/dsh-douyin.git"
+  },
+  "homepage": "https://github.com/youzishan6a/dsh-douyin#readme",
+  "bugs": {
+    "url": "https://github.com/youzishan6a/dsh-douyin/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dsh": ">=0.2.1"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "check": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
+    "esbuild": "0.25.9"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

@@ -1,0 +1,10 @@
+# 把本插件挂进 dsh profile。
+# 需要改配置时，取消下面 config 段的注释（键名见 README「配置」一节）。
+- insert:
+    - id: dsh-douyin
+      name: dsh-douyin
+      # config:
+      #   headless: false
+      #   browserChannel: auto
+      #   allowDestructive: true
+      #   maxUnfavoritePerRun: 50
